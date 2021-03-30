@@ -1,0 +1,83 @@
+#import libraries
+
+grid_Size	<---	input("Enter the gir size")
+sub_Grid	<---	SQROOT(grid_Size)
+Array	<---	[X[i] for i =1 to grid_Size]												#Array of Vectors for Sudoku
+saveArray	<---	[X[i] for i =1 to grid_Size]											#Save Array of Vectors for Sudoku
+NewArray	<---	[X[i] for i =1 to grid_Size]											#New Array of Vectors for Sudoku
+filecount	<---	COUNT('*.txt')													#count .txt files in the directory
+if filecount not equal 0 then														#Save .txt file to saveArray
+do
+	saveArray	<---	READ('filename_grid_Size.txt')
+endif
+
+#backup
+k	<---	z3.Solver()
+#primary
+s	<---	z3.Solver()
+
+#Constraints
+
+#All values greater than 1 and less than equal to grid_Size
+s.ADD(And([Array[i][j]>=1,Array[i][j]<=grid_Size for i,j =1 to grid_Size]))
+
+#Row Distinct
+s.ADD(Distinct([Array[i][j]) for i,j =1 to grid_Size]))
+
+#Col distinct
+s.ADD(Distinct([Array[j][i]) for i,j =1 to grid_Size]))
+
+#Sub-Grid Disctinct
+s.ADD(Distinct([subgrid[i]] for i =1 to sub_Grid^2))
+
+k	<---	COPY(s)
+
+#save previous selected item index
+prev_array_no	<---	-1
+prev_Element	<---	-1
+
+while True do
+	count_Sol	<---	 0
+	
+	NewArray=COPY(saveArray)													#save current Sudoku state to revert back when required	
+	array_Number = RANDOM(1, grid_Size)											#randomly select the vector number
+	element_Number = RANDOM(1, grid_Size)										#randomly select the element number in that vector
+	while prev_array_no equals array_Number and prev_Element  equals element_Number do	#to not allow same element to be chosen for deletion
+		array_Number	<---	RANDOM(1, grid_Size)
+		element_Number	<---	RANDOM(1, grid_Size)
+
+	endwhile
+
+	prev_array_no	<---	array_Number
+	prev_Element	<---	element_Number
+	saveArray[array_Number-1][element_Number-1]	<---	0
+	instance_c	<--- [ If(saveArray[i][j] equals 0,										#constraint for new sudoku with deleted element
+		          True,
+		          Array[i][j] equals saveArray[i][j])
+		       for i in range(grid_Size) for j in range(grid_Size) ]
+
+	s.ADD(instance_c)
+
+	if s.check() equals unsat:
+		break
+
+	while s.check() equals sat and count_Sol  less than 2 do
+		ls	<---	[]
+		count_Sol	<---	count_Sol+1												#increase count with number of solution
+		for i =1 to grid_Size do 													#not let previous solution to appear
+			for j =1 to grid_Size do
+				ls	<---	ls+[Array[i][j]!=s.model()[Array[i][j]]]
+			endfor
+		s.add(Or(ls))																#Add constraint to avoid current solution	
+		endfor
+	endwhile
+
+	if count_Sol equals 2:
+		saveArray	<---	COPY(NewArray)											#Obtained Solution
+		break
+	
+	s=COPY(k)																	#Copy back primary s for further check
+	break
+
+PRINT(s)																		#Final Output
+
